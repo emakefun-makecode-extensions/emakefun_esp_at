@@ -6,7 +6,7 @@ let last_publish_time = 0
 emakefun.initEspAtModule(SerialPin.P1, SerialPin.P0, BaudRate.BaudRate9600)
 emakefun.wifiConnect("emakefun", "501416wf")
 emakefun.mqttUserConfig(
-    emakefun.ConnectionScheme.kMqttOverTcp,
+    emakefun.connectionScheme.kMqttOverTcp,
     "my_client_id",
     "my_user_name",
     "my_password",
