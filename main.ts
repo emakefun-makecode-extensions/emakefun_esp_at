@@ -1,7 +1,5 @@
 //%block="Emakefun"
 namespace emakefun {
-
-
     /**
      * MQTT connection scheme options.
      */
@@ -45,20 +43,26 @@ namespace emakefun {
     }
 
     /**
-     * Initialize ESP-AT module.
-     * @param tx_pin TX pin.
-     * @param rx_pin RX pin.
-     * @param baud_rate Baud rate.
+     * Cancel send.
      */
-    //% block="Initialize ESP-AT module, TX Pin $tx_pin RX Pin $rx_pin baud rate $baud_rate"
+    function cancelSend(): boolean {
+        basic.pause(50);
+        serial.writeString("+++")
+        if (!emakefun.singleFindUtil("\r\nSEND Canceled\r\n", 200)) {
+            serial.writeLine("")
+            emakefun.emptyRx(100);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Initialize ESP-AT module.
+     */
+    //% block="Initialize ESP-AT module"
     //% subcategory="EspAt"
-    //% tx_pin.defl=SerialPin.P1
-    //% rx_pin.defl=SerialPin.P0
-    //% baud_rate.defl=BaudRate.BaudRate9600
     //% weight=100
-    export function initEspAtModule(tx_pin: SerialPin, rx_pin: SerialPin, baud_rate: BaudRate): void {
-        basic.pause(400);
-        serial.redirect(tx_pin, rx_pin, baud_rate);
+    export function initEspAtModule(): void {
         restart(2000);
         const at_commands = [
             "ATE0",
@@ -88,29 +92,14 @@ namespace emakefun {
         const end_time = input.runningTime() + timeout_ms;
         do {
             if (writeCommand("AT+RST", "\r\nOK\r\n", 100) && emakefun.singleFindUtil("\r\nready\r\n", 1000)) {
-                if (!writeCommand("AT", "\r\nOK\r\n", 100)) {
-                    throw "Error: WiFi connection failed.";
+                if (writeCommand("AT", "\r\nOK\r\n", 100)) {
+                    return;
                 }
-                return;
             } else {
                 cancelSend();
             }
         } while (input.runningTime() < end_time);
         throw "Error: module restart failed.";
-    }
-
-    /**
-     * Cancel send.
-     */
-    //% block="cancel send"
-    //% subcategory="EspAt"
-    //% weight=98
-    export function cancelSend(): void {
-        basic.pause(30);
-        serial.writeString("+++")
-        if (!emakefun.singleFindUtil("\r\nSEND Canceled\r\n", 500)) {
-            throw "Error: module cancel send failed.";
-        }
     }
 
     /**

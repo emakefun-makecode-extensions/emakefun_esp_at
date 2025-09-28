@@ -4,7 +4,7 @@ namespace emakefun {
     /**
      * Simultaneously search for multiple target strings in a serial data stream.
      * @param targets The target string array to be searched for.
-    * @param timeout_ms Timeout for waiting for response (milliseconds).
+     * @param timeout_ms Timeout for waiting for response (milliseconds).
      * @returns Find the index of the target string in the array, return -1 if not found.
      */
     export function multiFindUtil(targets: string[], timeout_ms: number): number {
@@ -238,7 +238,7 @@ namespace emakefun {
     */
     export function readBytes(length: number, timeout_ms: number): Buffer {
         if (length <= 0 || timeout_ms < 0) {
-            return null;
+            throw "Error: 'readBytes' function, invalid parameters.";
         }
         let result_buffer = g_received_buffer;
         let result_length = result_buffer.length;
@@ -263,6 +263,21 @@ namespace emakefun {
         }
 
         return result_buffer;
+    }
+
+    /**
+     * Clear the serial receive buffer.
+     * @param timeout_ms Timeout for clearing operation (milliseconds).
+     */
+    export function emptyRx(timeout_ms: number): void {
+        if (timeout_ms < 0) {
+            throw "Error: 'emptyRx' function, invalid parameters.";
+        }
+        g_received_buffer = Buffer.create(0)
+        const end_time = input.runningTime() + timeout_ms;
+        do {
+            serial.readBuffer(0);
+        } while (input.runningTime() < end_time);
     }
 
 }
