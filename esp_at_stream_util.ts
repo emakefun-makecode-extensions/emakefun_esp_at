@@ -1,5 +1,4 @@
 namespace emakefun {
-    let g_received_buffer = Buffer.create(0);
 
     /**
      * Simultaneously search for multiple target strings in a serial data stream.
@@ -17,22 +16,16 @@ namespace emakefun {
             offsets.push(0);
         }
         const end_time = input.runningTime() + timeout_ms;
-        do {
-            let data = serial.readBuffer(0);
-            if (g_received_buffer.length > 0) {
-                data = g_received_buffer.concat(data);
-                g_received_buffer = Buffer.create(0)
-            }
-
-            for (let i = 0; i < data.length; i++) {
+        while (true) {
+            const current_byte = emakefun.readSerialByte();
+            if (current_byte > 0) {
                 for (let j = 0; j < byte_targets.length; j++) {
                     const byte_target = byte_targets[j];
                     let offset = offsets[j];
 
-                    if (data[i] == byte_target[offset]) {
-                        offset += 1;
+                    if (current_byte == byte_target[offset]) {
+                        offset++;
                         if (offset == byte_target.length) {
-                            g_received_buffer = data.slice(i + 1);
                             return j;
                         }
                         offsets[j] = offset;
@@ -44,7 +37,7 @@ namespace emakefun {
                     const original_offset = offset
                     while (offset > 0) {
                         offset -= 1;
-                        if (data[i] != byte_target[offset]) {
+                        if (current_byte != byte_target[offset]) {
                             continue;
                         }
                         if (offset == 0) {
@@ -65,8 +58,10 @@ namespace emakefun {
                     }
                 }
             }
-        } while (input.runningTime() < end_time);
-        return NaN;
+            if (input.runningTime() >= end_time) {
+                return NaN;
+            }
+        }
     }
 
     /**
@@ -83,33 +78,31 @@ namespace emakefun {
         let offset = 0;
 
         const end_time = input.runningTime() + timeout_ms;
-        do {
-            let data = serial.readBuffer(0);
-            if (g_received_buffer.length > 0) {
-                data = g_received_buffer.concat(data);
-                g_received_buffer = Buffer.create(0)
-            }
-            for (let i = 0; i < data.length; i++) {
-                if (data[i] == byte_target[offset]) {
+        while (true) {
+            const current_byte = emakefun.readSerialByte();
+            if (current_byte > 0) {
+                if (current_byte == byte_target[offset]) {
                     offset += 1;
                     if (offset == byte_target.length) {
-                        g_received_buffer = data.slice(i + 1);
                         return true
-                    };
+                    }
                     continue
                 }
+                if (0 == offset) {
+                    continue;
+                }
 
-                const original_offset = offset
+                const original_offset = offset;
                 while (offset > 0) {
                     offset -= 1;
-                    if (data[i] != byte_target[offset]) {
+                    if (current_byte != byte_target[offset]) {
                         continue;
                     }
                     if (offset == 0) {
                         offset += 1;
                         break;
                     }
-                    const offset_diff = original_offset - offset
+                    const offset_diff = original_offset - offset;
                     let k = 0;
                     for (k = 0; k < offset; k++) {
                         if (byte_target[k] != byte_target[k + offset_diff]) {
@@ -122,8 +115,10 @@ namespace emakefun {
                     }
                 }
             }
-        } while (input.runningTime() < end_time);
-        return false;
+            if (input.runningTime() >= end_time) {
+                return false;
+            }
+        }
     }
 
     /**
@@ -136,30 +131,17 @@ namespace emakefun {
         if (!target || target.length != 1 || timeout_ms < 0) {
             throw "Error: 'skipNext' function, invalid parameters.";
         }
-
         const target_byte = Buffer.fromUTF8(target)[0];
         const end_time = input.runningTime() + timeout_ms;
-
-        let read_byte: number;
-
-        if (g_received_buffer.length > 0) {
-            read_byte = g_received_buffer[0];
-            g_received_buffer = g_received_buffer.slice(1);
-            return read_byte == target_byte;
-        }
-
-        do {
-            const data = serial.readBuffer(0);
-            if (data.length > 0) {
-                read_byte = data[0];
-                if (data.length > 1) {
-                    g_received_buffer = data.slice(1);
-                }
-                return read_byte == target_byte;
+        while (true) {
+            const current_byte = emakefun.readSerialByte();
+            if (current_byte > 0) {
+                return current_byte == target_byte;
             }
-        } while (input.runningTime() < end_time);
-        return false;
-
+            if (input.runningTime() >= end_time) {
+                return false;
+            }
+        }
     }
 
     /**
@@ -171,29 +153,26 @@ namespace emakefun {
         if (timeout_ms < 0) {
             throw "Error: 'parseNumber' function, invalid parameters.";
         }
-        const end_time = input.runningTime() + timeout_ms;
         let num_str = "";
-        do {
-            let data = serial.readBuffer(0);
-            if (g_received_buffer.length > 0) {
-                data = g_received_buffer.concat(data);
-                g_received_buffer = Buffer.create(0);
-            }
-            for (let i = 0; i < data.length; i++) {
-                const read_char = String.fromCharCode(data[i]);
 
+        const end_time = input.runningTime() + timeout_ms;
+        while (true) {
+            const current_byte = emakefun.readSerialByte();
+            if (current_byte > 0) {
+                const read_char = String.fromCharCode(current_byte);
                 if ((read_char == "-" && num_str == "") || ("0" <= read_char && read_char <= "9")) {
                     num_str += read_char;
                 } else {
-                    g_received_buffer = data.slice(i + 1);
                     if (num_str != "" && num_str != "-") {
                         return parseInt(num_str);
                     }
                     return NaN;
                 }
             }
-        } while (input.runningTime() < end_time);
-        return NaN;
+            if (input.runningTime() >= end_time) {
+                return NaN;
+            }
+        }
     }
 
     /**
@@ -208,61 +187,22 @@ namespace emakefun {
         }
 
         const delimiter_byte = Buffer.fromUTF8(delimiter)[0];
+        let result = "";
+
         const end_time = input.runningTime() + timeout_ms;
-        let result_buffer = Buffer.create(0);
-
-        do {
-            let data = serial.readBuffer(0);
-            if (g_received_buffer.length > 0) {
-                data = g_received_buffer.concat(data);
-                g_received_buffer = Buffer.create(0);
-            }
-            for (let i = 0; i < data.length; i++) {
-                if (data[i] == delimiter_byte) {
-                    g_received_buffer = data.slice(i + 1);
-                    result_buffer = result_buffer.concat(data.slice(0, i))
-                    return result_buffer.toString();
+        while (true) {
+            const current_byte = emakefun.readSerialByte();
+            if (current_byte > 0) {
+                if (current_byte == delimiter_byte) {
+                    return result;
+                } else {
+                    result += String.fromCharCode(current_byte);
                 }
             }
-            result_buffer = result_buffer.concat(data);
-        } while (input.runningTime() < end_time);
-        return null;
-
-    }
-
-    /**
-    * Read data of specified length
-    * @param length The length of the data to be read
-    * @param timeout_ms Timeout for waiting for response (milliseconds).
-    * @returns Read data, return null if timeout or insufficient data
-    */
-    export function readBytes(length: number, timeout_ms: number): Buffer {
-        if (length <= 0 || timeout_ms < 0) {
-            throw "Error: 'readBytes' function, invalid parameters.";
+            if (input.runningTime() >= end_time) {
+                return null;
+            }
         }
-        let result_buffer = g_received_buffer;
-        let result_length = result_buffer.length;
-        g_received_buffer = Buffer.create(0);
-
-        if (result_length < length) {
-            const end_time = input.runningTime() + timeout_ms;
-            do {
-                const data = serial.readBuffer(0);
-                if (data.length > 0) {
-                    result_buffer = result_buffer.concat(data);
-                    result_length += data.length;
-                }
-            } while (result_length < length && input.runningTime() < end_time);
-        }
-
-        if (result_length > length) {
-            g_received_buffer = result_buffer.slice(length + 1);
-            result_buffer = result_buffer.slice(0, length);
-        } else if (result_length < length) {
-            return null;
-        }
-
-        return result_buffer;
     }
 
     /**
@@ -273,11 +213,13 @@ namespace emakefun {
         if (timeout_ms < 0) {
             throw "Error: 'emptyRx' function, invalid parameters.";
         }
-        g_received_buffer = Buffer.create(0)
         const end_time = input.runningTime() + timeout_ms;
-        do {
-            serial.readBuffer(0);
-        } while (input.runningTime() < end_time);
+        while (true) {
+            emakefun.readSerialByte();
+            if (input.runningTime() >= end_time) {
+                return;
+            }
+        }
     }
 
 }

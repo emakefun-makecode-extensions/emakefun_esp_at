@@ -1,7 +1,7 @@
 const MQTT_TOPIC = `emakefun/sensor/${control.deviceSerialNumber()}/testtopic`
 
 let last_publish_time = 0
-let display_state = true
+let next_display_on = true
 serial.redirect(
     SerialPin.P1,
     SerialPin.P0,
@@ -20,19 +20,33 @@ emakefun.mqttConnect("broker.emqx.io", 1883, true)
 emakefun.mqttSubscribe(MQTT_TOPIC, 0)
 basic.showIcon(IconNames.Happy)
 basic.forever(function () {
-    const message = emakefun.mqttReceive(500)
-    if (message && message.topic == MQTT_TOPIC) {
-        if (message.message == "display on") {
-            led.enable(true)
-            display_state = !(display_state)
-        } else if (message.message == "display off") {
-            led.enable(false)
-            display_state = !(display_state)
+    const message_info = emakefun.mqttReceive(100)
+    if (message_info != null) {
+        let received_data = ""
+
+        const end_time = input.runningTime() + 200
+        while (received_data.length < message_info.length) {
+            const current_byte = emakefun.readSerialByte()
+            if (current_byte > 0) {
+                received_data = "" + received_data + String.fromCharCode(current_byte)
+            }
+            if (input.runningTime() >= end_time) {
+                break;
+            }
+        }
+        if (message_info.topic == MQTT_TOPIC && received_data.length == message_info.length) {
+            if (received_data == "display on") {
+                led.enable(true)
+                next_display_on = false
+            } else if (received_data == "display off") {
+                led.enable(false)
+                next_display_on = true
+            }
         }
     }
     if (input.runningTime() - last_publish_time > 1000) {
         emakefun.mqttPublish(
-            display_state ? "display on" : "display off",
+            next_display_on ? "display on" : "display off",
             MQTT_TOPIC,
             1000,
             0,

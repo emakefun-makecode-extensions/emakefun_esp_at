@@ -39,7 +39,7 @@ namespace emakefun {
         }
         const targets = [success_target, "\r\nERROR\r\n", "busy p...\r\n"];
         serial.writeString(command + "\r\n");
-        return emakefun.multiFindUtil(targets, timeout_ms) == 0
+        return emakefun.multiFindUtil(targets, timeout_ms) == 0;
     }
 
     /**
@@ -61,6 +61,9 @@ namespace emakefun {
      */
     //% block="Initialize ESP-AT module"
     //% subcategory="EspAt"
+    //% tx_pin.defl=SerialPin.P1
+    //% rx_pin.defl=SerialPin.P0
+    //% baud_rate.defl=BaudRate.BaudRate9600
     //% weight=100
     export function initEspAtModule(): void {
         restart(2000);
@@ -336,7 +339,7 @@ namespace emakefun {
     //% timeout_ms.defl=500
     //% timeout_ms.min=0
     //% weight=35
-    export function mqttReceive(timeout_ms: number): { topic: string, message: string } {
+    export function mqttReceive(timeout_ms: number): { topic: string, length: number } {
         if (!emakefun.singleFindUtil('+MQTTSUBRECV:0,"', timeout_ms)) {
             return null;
         }
@@ -349,10 +352,6 @@ namespace emakefun {
         if (isNaN(length) || length <= 0) {
             return null;
         }
-        const message_data = emakefun.readBytes(length, 1000);
-        if (!message_data) {
-            return null;
-        }
-        return { topic: topic, message: message_data.toString() };
+        return { topic: topic, length: length };
     }
 }
