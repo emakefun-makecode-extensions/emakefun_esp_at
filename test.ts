@@ -5,7 +5,7 @@ let next_display_on = true
 serial.redirect(
     SerialPin.P1,
     SerialPin.P0,
-    BaudRate.BaudRate9600
+    BaudRate.BaudRate115200
 )
 emakefun.initEspAtModule()
 emakefun.wifiConnect("emakefun", "501416wf")
